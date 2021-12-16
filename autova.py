@@ -7,7 +7,8 @@ gpu_top_path = '/home/fresh/data/intel_gpu_top'
 kill_gpu_top = 'sudo killall -9 intel_gpu_top'
 
 # base_cmd = './benchmark_app -m models/resnet_v1.5_50_i8.xml -d GPU -b 1 -t 100 -use_device_mem -nstreams 16'
-base_cmd = './benchmark_app -m models/ssd_mobilenet_v1_coco.xml -d GPU -b 1 -t 100 -use_device_mem -nstreams 16'
+# base_cmd = './benchmark_app -m models/ssd_mobilenet_v1_coco.xml -d GPU -b 1 -t 100 -use_device_mem -nstreams 16'
+base_cmd = './benchmark_app -m models/yolo_v4.xml -d GPU -b 64 -shape "[1,3,416,416]" -use_device_mem -nstreams 4 -t 10'
 
 result_dict = {}
 
@@ -54,11 +55,18 @@ def calc_multi(n):
                     freq_list.append(freq)
     result_dict[n] = (fps_list, int(np.average(freq_list)), float(np.average(ccs0)), float(np.average(ccs1)), float(np.average(ccs2)), float(np.average(ccs3)))
 
+    with open('freq_%02d.csv'%(n-1), 'wt') as f:
+        f.writelines('\n'.join([str(i) for i in fps_list]))
+    
+    with open('gpu_utils_%02d.csv'%(n-1), 'wt') as f:
+        for i in range(len(ccs0)):
+            f.write('%.1f, %.1f, %.1f, %.1f, \n' % (ccs0[i], ccs1[i], ccs2[i], ccs3[i]))
+
 def gen_report(n):
     head_line = 'process count, GT freq, ccs0 %, ccs1 %, ccs2 %, ccs3 %, '
-    for i in range(1, n):
-        calc_multi(i)
-        head_line += 'proc-%d fps, ' % (i)
+    for i in range(0, n):
+        calc_multi(i+1)
+        head_line += 'proc-%d fps, ' % (i+1)
     head_line += 'Total fps \n'
 
     print(head_line)
@@ -79,13 +87,15 @@ def save_data():
     Path(folder_name).mkdir(parents=True, exist_ok=True)
     run_cmd('mv multi_*.log %s' % folder_name)
     run_cmd('mv perf.csv %s' % folder_name)
+    run_cmd('mv freq_*.csv %s' % folder_name)
+    run_cmd('mv gpu_utils_*.csv %s' % folder_name)
 
 def execute(n):
-    for i in range(1, n):
-        run_multi_process(i)
+    for i in range(0, n):
+        run_multi_process(i+1)
     gen_report(n)
     save_data()
 
-execute(2)
+execute(1)
 
 print('done')
